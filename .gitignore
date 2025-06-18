@@ -1,0 +1,12 @@
+.env
+.venv
+*.pyc
+__pycache__/
+.claude
+backup/
+./test
+.test/
+.test/*
+/test/*
+venv/
+logs/*
