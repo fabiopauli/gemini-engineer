@@ -20,8 +20,9 @@ from rich.table import Table
 from rich.panel import Panel
 
 # Import configuration
+import config
 from config import (
-    os_info, base_dir, git_context, model_context, security_context, logging_context,
+    os_info, git_context, model_context, security_context, logging_context,
     FUZZY_AVAILABLE, MIN_FUZZY_SCORE, MIN_EDIT_SCORE, MAX_FILE_CONTENT_SIZE_CREATE,
     ESTIMATED_MAX_TOKENS, CONTEXT_WARNING_THRESHOLD, AGGRESSIVE_TRUNCATION_THRESHOLD,
     MAX_HISTORY_MESSAGES, MAX_CONTEXT_FILES, MAX_MULTIPLE_READ_SIZE,
@@ -722,14 +723,16 @@ def run_bash_command(command: str) -> Tuple[str, str, int]:
                 ["wsl", "bash", "-c", command],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
+                cwd=str(config.base_dir)
             )
         else:
             completed = subprocess.run(
                 [bash_executable, "-c", command],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
+                cwd=str(config.base_dir)
             )
         return completed.stdout, completed.stderr, completed.returncode
     except subprocess.TimeoutExpired:
@@ -786,7 +789,8 @@ def run_powershell_command(command: str) -> Tuple[str, str, int]:
             [pwsh_executable, "-Command", command],
             capture_output=True,
             text=True,
-            timeout=30  # 30 second timeout for safety
+            timeout=30,  # 30 second timeout for safety
+            cwd=str(config.base_dir)
         )
         return completed.stdout, completed.stderr, completed.returncode
     except subprocess.TimeoutExpired:
@@ -837,7 +841,7 @@ def initialize_logging() -> None:
     from datetime import datetime
     
     # Create logs directory if it doesn't exist
-    log_dir = base_dir / logging_context['log_directory']
+    log_dir = config.base_dir / logging_context['log_directory']
     log_dir.mkdir(exist_ok=True)
     
     # Generate session ID
@@ -856,7 +860,7 @@ def initialize_logging() -> None:
         "system_info": {
             "os": os_info['system'],
             "python_version": os_info['python_version'],
-            "base_dir": str(base_dir)
+            "base_dir": str(config.base_dir)
         }
     }
     
@@ -1011,7 +1015,7 @@ def _rotate_log_file() -> None:
     # Create new log file name
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = logging_context['log_filename_format'].replace("{timestamp}", timestamp)
-    log_dir = base_dir / logging_context['log_directory']
+    log_dir = config.base_dir / logging_context['log_directory']
     logging_context['current_log_file'] = log_dir / filename
     
     # Clean up old log files if needed
@@ -1022,7 +1026,7 @@ def _rotate_log_file() -> None:
 def _cleanup_old_logs() -> None:
     """Clean up old log files to stay within the limit."""
     try:
-        log_dir = base_dir / logging_context['log_directory']
+        log_dir = config.base_dir / logging_context['log_directory']
         if not log_dir.exists():
             return
         

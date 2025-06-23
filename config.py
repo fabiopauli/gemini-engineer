@@ -204,7 +204,10 @@ Core capabilities:
    - git_create_branch: Create and switch to a new Git branch.
    - git_status: Show the current Git status, useful for seeing what is staged or unstaged.
 
-4. System Operations (with security confirmation):
+4. Directory Operations:
+   - change_directory: Change the working directory for all file and command operations
+
+5. System Operations (with security confirmation):
    - run_powershell: Execute PowerShell commands (Windows/Cross-platform PowerShell Core)
    - run_bash: Execute bash commands (macOS/Linux/WSL)
    
@@ -439,6 +442,24 @@ tools = [
                     }
                 },
                 "required": ["command"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "change_directory",
+            "strict": True,
+            "description": "Change the working directory for all file and command operations. This is equivalent to running the /folder command.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "directory_path": {
+                        "type": "string",
+                        "description": "The path to the directory to change to. Can be absolute or relative. Use 'reset' to return to the original working directory."
+                    }
+                },
+                "required": ["directory_path"]
             }
         }
     }

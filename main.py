@@ -1231,6 +1231,56 @@ def llm_git_status() -> str:
             git_context['enabled'] = False
         return f"Git status error: {e}"
 
+def llm_change_directory(directory_path: str) -> str:
+    """
+    LLM tool handler for changing directory.
+    
+    Args:
+        directory_path: Path to change to, or 'reset' to return to original directory
+        
+    Returns:
+        Result message
+    """
+    import config
+    from utils import get_directory_tree_summary
+    
+    if not directory_path:
+        return f"Current working directory: {config.base_dir}"
+    
+    if directory_path.lower() == "reset":
+        old_base = config.base_dir
+        current_cwd = Path.cwd()
+        config.base_dir = current_cwd
+        return f"Directory reset from '{old_base}' to: '{config.base_dir}'"
+    
+    try:
+        new_base = Path(directory_path).resolve()
+        if not new_base.exists():
+            return f"Error: Directory does not exist: '{directory_path}'"
+        if not new_base.is_dir():
+            return f"Error: Path is not a directory: '{directory_path}'"
+        
+        # Test write permissions
+        test_file = new_base / ".eng-git-test"
+        try:
+            test_file.touch()
+            test_file.unlink()
+        except PermissionError:
+            return f"Error: No write permissions in directory: '{new_base}'"
+        
+        old_base = config.base_dir
+        config.base_dir = new_base
+        
+        console.print(f"[green]✓ Working directory changed from '{old_base}' to: '{config.base_dir}'[/green]")
+        console.print(f"[green]  All file and command operations will now use this directory.[/green]")
+        
+        # Get directory summary for the return message
+        dir_summary = get_directory_tree_summary(config.base_dir)
+        return f"Successfully changed working directory to: {config.base_dir}\n\nDirectory structure:\n{dir_summary}"
+        
+    except Exception as e:
+        return f"Error changing directory: {e}"
+
 def execute_function_call_dict(tool_call_dict: Dict[str, Any]) -> str:
     """
     Execute a function call from the LLM with enhanced fuzzy matching and security.
@@ -1419,6 +1469,8 @@ def execute_function_call_dict(tool_call_dict: Dict[str, Any]) -> str:
                 if error.strip():
                     result_parts.append(f"Bash Messages:\n{error}")
                 return "\n".join(result_parts) if result_parts else "Bash Output:\nCommand completed successfully (no output)"
+        elif func_name == "change_directory":
+            return llm_change_directory(args.get("directory_path", ""))
         else: 
             return f"Unknown LLM function: {func_name}"
             
