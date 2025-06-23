@@ -527,18 +527,18 @@ def try_handle_r1_command(user_input: str, conversation_history: List[Dict[str, 
     return False
 
 def try_handle_reasoner_command(user_input: str) -> bool:
-    """Handle /reasoner command to toggle between models."""
+    """Handle /reasoner command to toggle between chat and reasoner modes."""
     if user_input.strip().lower() == "/reasoner":
-        if model_context['current_model'] == DEFAULT_MODEL:
+        if not model_context.get('is_reasoner', False):
             model_context['current_model'] = REASONER_MODEL
             model_context['is_reasoner'] = True
-            console.print(f"[green]✓ Switched to {REASONER_MODEL} model 🧠[/green]")
-            console.print("[dim]All subsequent conversations will use the reasoner model.[/dim]")
+            console.print(f"[green]✓ Switched to {REASONER_MODEL} (reasoner mode) 🧠[/green]")
+            console.print("[dim]All subsequent conversations will use thinking/reasoning capabilities.[/dim]")
         else:
             model_context['current_model'] = DEFAULT_MODEL
             model_context['is_reasoner'] = False
-            console.print(f"[green]✓ Switched to {DEFAULT_MODEL} model 💬[/green]")
-            console.print("[dim]All subsequent conversations will use the chat model.[/dim]")
+            console.print(f"[green]✓ Switched to {DEFAULT_MODEL} (chat mode) 💬[/green]")
+            console.print("[dim]All subsequent conversations will use standard chat mode.[/dim]")
         return True
     return False
 
@@ -574,6 +574,7 @@ def try_handle_clear_context_command(user_input: str, conversation_history: List
 
 def try_handle_folder_command(user_input: str, conversation_history: List[Dict[str, Any]]) -> bool:
     """Handle /folder command to manage base directory."""
+    import config
     global base_dir
     if user_input.strip().lower().startswith("/folder"):
         folder_path = user_input[len("/folder"):].strip()
@@ -585,6 +586,7 @@ def try_handle_folder_command(user_input: str, conversation_history: List[Dict[s
             old_base = base_dir
             current_cwd = Path.cwd()
             base_dir = current_cwd
+            config.base_dir = current_cwd  # Update the config module's base_dir
             console.print(f"[green]✓ Base directory reset from '{old_base}' to: '{base_dir}'[/green]")
             console.print(f"[green]  Synchronized with current working directory: '{current_cwd}'[/green]")
             
@@ -610,6 +612,7 @@ def try_handle_folder_command(user_input: str, conversation_history: List[Dict[s
                 return True
             old_base = base_dir
             base_dir = new_base
+            config.base_dir = new_base  # Update the config module's base_dir
             console.print(f"[green]✓ Base directory changed from '{old_base}' to: '{base_dir}'[/green]")
             console.print(f"[green]  All relative paths will now be resolved against this directory.[/green]")
             
@@ -1582,9 +1585,9 @@ def main_loop() -> None:
                         "content": tool_output 
                     })
                 
-                # Only continue if the model's response was incomplete (no text content)
-                # If the model provided both text and tool calls, it's likely a complete response
-                should_continue = not full_response_content or not full_response_content.strip()
+                # Always allow the assistant to continue processing after tool calls
+                # The model might provide text along with tool calls, and we should still let it continue
+                should_continue = True
                 
                 if should_continue:
                     # Now let the assistant continue with the tool results
@@ -1612,15 +1615,15 @@ def main_loop() -> None:
                         # Check if there are more tool calls to execute
                         valid_continuation_tools = validate_tool_calls(continuation_tool_calls)
                         
-                        # Filter out duplicate tool calls (same command executed recently)
+                        # Filter out duplicate tool calls (same command executed in the last 3 messages only)
                         if valid_continuation_tools:
                             # Get the last few tool calls from conversation history to check for duplicates
                             recent_tool_calls = []
-                            for msg in reversed(conversation_history[-10:]):  # Check last 10 messages
+                            for msg in reversed(conversation_history[-3:]):  # Check last 3 messages only
                                 if msg.get("role") == "assistant" and msg.get("tool_calls"):
                                     recent_tool_calls.extend(msg["tool_calls"])
                             
-                            # Remove duplicates based on function name and arguments
+                            # Remove exact duplicates only (same function and arguments)
                             filtered_tools = []
                             for tool in valid_continuation_tools:
                                 is_duplicate = False
@@ -1634,10 +1637,10 @@ def main_loop() -> None:
                             
                             valid_continuation_tools = filtered_tools
                         
-                        # If model provided substantial text content, stop continuing even if there are tool calls
-                        has_meaningful_text = continuation_content and len(continuation_content.strip()) > 20
+                        # Execute tool calls if present, regardless of text content
+                        # The model can provide explanatory text along with tool calls
                         
-                        if valid_continuation_tools and not has_meaningful_text:
+                        if valid_continuation_tools:
                             continuation_message["tool_calls"] = valid_continuation_tools
                             conversation_history.append(continuation_message)
                             

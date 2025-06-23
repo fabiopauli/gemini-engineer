@@ -360,6 +360,10 @@ def normalize_path(path_str: str, allow_outside_project: bool = False) -> str:
     Raises:
         ValueError: If path is outside project directory when allow_outside_project=False
     """
+    # Import base_dir dynamically to get the current value
+    import config
+    current_base_dir = config.base_dir
+    
     try:
         p = Path(path_str)
         
@@ -371,7 +375,7 @@ def normalize_path(path_str: str, allow_outside_project: bool = False) -> str:
                 resolved_p = p.resolve()
         else:
             # For relative paths, resolve against base_dir instead of cwd
-            base_path = base_dir / p
+            base_path = current_base_dir / p
             if base_path.exists() or base_path.is_symlink():
                 resolved_p = base_path.resolve(strict=True)
             else:
@@ -383,11 +387,11 @@ def normalize_path(path_str: str, allow_outside_project: bool = False) -> str:
         if p.is_absolute():
             resolved_p = p.resolve()
         else:
-            resolved_p = (base_dir / p).resolve()
+            resolved_p = (current_base_dir / p).resolve()
     
     # Security validation: ensure path is within project directory
     if not allow_outside_project:
-        base_resolved = base_dir.resolve()
+        base_resolved = current_base_dir.resolve()
         try:
             # Check if the resolved path is within the base directory
             resolved_p.relative_to(base_resolved)
@@ -420,7 +424,7 @@ def read_local_file(file_path: str) -> str:
     Read content from a local file.
     
     Args:
-        file_path: Path to the file to read
+        file_path: Path to the file to read (should already be normalized/resolved)
         
     Returns:
         File content as string
@@ -429,8 +433,8 @@ def read_local_file(file_path: str) -> str:
         FileNotFoundError: If file doesn't exist
         UnicodeDecodeError: If file can't be decoded as UTF-8
     """
-    full_path = (base_dir / file_path).resolve()
-    with open(full_path, "r", encoding="utf-8") as f:
+    # Use the path directly since it should already be normalized by normalize_path()
+    with open(file_path, "r", encoding="utf-8") as f:
         return f.read()
 
 def add_file_context_smartly(conversation_history: List[Dict[str, Any]], file_path: str, content: str, max_context_files: int = MAX_CONTEXT_FILES) -> bool:
